@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>CRUD Usuários com ApiService</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    body {
+      padding: 2em;
+    }
+
+    table {
+      margin-top: 1em;
+    }
+  </style>
+</head>
+
+<body class="container">
+  <h1 class="mb-4">Gerenciamento de Disciplinas</h1>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      Filtro de Disciplina
+    </div>
+    <div class="card-body">
+      <label for="txtFiltroDisciplina" class="form-label">Média Definida</label>
+      <input type="text" id="txtFiltroDisciplina" class="form-control" placeholder="Digite a média" />
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      Cadastro de Disciplina
+    </div>
+
+    <div class="card-body">
+      <div class="mb-3">
+        <input type="number" id="txtId" class="form-control mb-2" placeholder="ID" />
+        <input type="text" id="txtNomeDisciplina" class="form-control mb-2" placeholder="Nome" />
+        <input type="number" id="txtIdCurso" class="form-control mb-2" placeholder="ID do Curso" />
+        <input type="number" id="txtIdProfessor" class="form-control mb-2" placeholder="ID do Professor" />
+        <input type="number" id="txtMediaDefinida" class="form-control mb-2" placeholder="Média Definida" />
+      </div>
+
+      <div class="mb-3 d-flex gap-2" id="divBotoes"></div>
+
+      <div id="divResposta"></div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header">
+      Lista de disciplinas
+    </div>
+    <div class="card-body">
+      <div id="divTabela"></div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-labelledby="modalConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalConfirmLabel">Confirmar Exclusão</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          Tem certeza que deseja excluir esta disciplina?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDelete">Excluir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import ApiService from './ApiService.js';
+
+    const divUsuario = document.getElementById("divUsuario");
+
+    let userData = localStorage.getItem("userData");
+
+    if (userData) {
+      userData = JSON.parse(userData);
+    } else {
+      window.location.href = "login.html";
+    }
+
+    const token = userData.data.token;
+    const api = new ApiService(token);
+    let API_DATA;
+
+    const txtId = document.getElementById("txtId");
+    const txtNomeDisciplina = document.getElementById("txtNomeDisciplina");
+    const txtIdCurso = document.getElementById("txtIdCurso");
+    const txtIdProfessor = document.getElementById("txtIdProfessor");
+    const txtMediaDefinida = document.getElementById("txtMediaDefinida");
+    const divBotoes = document.getElementById("divBotoes");
+    const divResposta = document.getElementById("divResposta");
+
+    function createButton(text, className) {
+      const btn = document.createElement("button");
+      btn.textContent = text;
+      btn.className = `btn ${className} flex-fill`;
+      return btn;
+    }
+
+    const btnListar = createButton("Listar", "btn-primary");
+    btnListar.onclick = async function btnListar_click() {
+      listAll();
+    };
+    divBotoes.appendChild(btnListar);
+
+    const btnCriar = createButton("Criar", "btn-success");
+    btnCriar.onclick = async function btnCriar_click() {
+      if (txtId.value.trim() == "") {
+        divResposta.textContent = "ID inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtNomeDisciplina.value.trim() == "") {
+        divResposta.textContent = "Nome inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtIdCurso.value.trim() == "") {
+        divResposta.textContent = "ID do Curso inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+      if (txtIdProfessor.value.trim() == "") {
+        divResposta.textContent = "ID do Professor inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtMediaDefinida.value.trim() == "") {
+        divResposta.textContent = "Média Definida inválida";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      const objetoCriar = {
+        "disciplina": {
+          "id_disciplina": parseInt(txtId.value.trim()),
+          "nomeDisciplina": txtNomeDisciplina.value.trim(),
+          "id_curso": parseInt(txtIdCurso.value.trim()),
+          "id_professor": parseInt(txtIdProfessor.value.trim()),
+          "mediaDefinida": parseFloat(txtMediaDefinida.value.trim())
+        }
+      };
+
+      const resposta = await api.post("/disciplinas", objetoCriar);
+      if (resposta && resposta.success) {
+        divResposta.textContent = "Disciplina criada com sucesso.";
+        divResposta.className = "alert alert-success";
+      } else {
+        divResposta.textContent = "Erro ao criar disciplina. Verifique se o ID já existe.";
+        divResposta.className = "alert alert-danger";
+      }
+      listAll();
+    };
+    divBotoes.appendChild(btnCriar);
+
+    const btnAtualizar = createButton("Atualizar", "btn-warning");
+    btnAtualizar.onclick = async function btnAtualizar_click() {
+      const id = txtId.value.trim();
+      if (!id) {
+        divResposta.textContent = "Selecione uma disciplina para atualizar";
+        divResposta.className = "alert alert-warning";
+        return
+      }
+      const objetoAtualizar = {
+        "disciplina": {
+          "id_disciplina": parseInt(txtId.value.trim()),
+          "nomeDisciplina": txtNomeDisciplina.value.trim(),
+          "id_curso": parseInt(txtIdCurso.value.trim()),
+          "id_professor": parseInt(txtIdProfessor.value.trim()),
+          "mediaDefinida": parseFloat(txtMediaDefinida.value.trim())
+        }
+      };
+
+      const resposta = await api.put("/disciplinas", id, objetoAtualizar);
+      if (resposta && resposta.success) {
+        divResposta.textContent = "Disciplina atualizada com sucesso.";
+        divResposta.className = "alert alert-success";
+      } else {
+        divResposta.textContent = "Erro ao atualizar disciplina. Verifique se o ID existe.";
+        divResposta.className = "alert alert-danger";
+      }
+      listAll();
+    };
+    divBotoes.appendChild(btnAtualizar);
+
+    const btnExcluir = createButton("Excluir", "btn-danger");
+    btnExcluir.onclick = function () {
+      const id = txtId.value.trim();
+      if (!id) {
+        divResposta.textContent = "Selecione uma disciplina para excluir";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      const modal = new bootstrap.Modal(document.getElementById('modalConfirm'));
+      modal.show();
+
+      const btnConfirmDelete = document.getElementById("btnConfirmDelete");
+      btnConfirmDelete.onclick = async function () {
+        const resultado = await api.delete("/disciplinas", id);
+        if (resultado && resultado.success) {
+          listAll();
+          divResposta.textContent = `Disciplina ID ${id} excluída com sucesso.`;
+          divResposta.className = "alert alert-success";
+          txtId.value = "";
+          txtNomeDisciplina.value = "";
+        } else {
+          divResposta.textContent = "Erro ao excluir disciplina. Ela pode estar vinculada a outros registros.";
+          divResposta.className = "alert alert-danger";
+        }
+        modal.hide();
+      };
+    };
+
+    divBotoes.appendChild(btnExcluir);
+
+    async function listAll() {
+      API_DATA = await api.get("/disciplinas");
+
+      if (API_DATA.success == true) {
+        renderTable(API_DATA);
+      }
+    }
+
+    function renderTable(dados) {
+      const divTabela = document.getElementById("divTabela");
+      divTabela.innerHTML = "";
+
+      const table = document.createElement("table");
+      table.className = "table table-bordered table-striped";
+
+      const thead = document.createElement("thead");
+      thead.className = "table-light";
+      const trHead = document.createElement("tr");
+
+      ["ID", "Nome Disciplina", "ID Curso", "ID Professor", "Média Definida", "Ações"].forEach(text => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        trHead.appendChild(th);
+      });
+
+      thead.appendChild(trHead);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      dados.data.disciplinas.forEach(disciplina => {
+        const tr = document.createElement("tr");
+
+        const tdId = document.createElement("td");
+        tdId.textContent = disciplina.id_disciplina;
+        tr.appendChild(tdId);
+
+        const tdNome = document.createElement("td");
+        tdNome.textContent = disciplina.nomeDisciplina;
+        tr.appendChild(tdNome);
+
+        const tdCurso = document.createElement("td");
+        tdCurso.textContent = disciplina.id_curso;
+        tr.appendChild(tdCurso);
+
+        const tdProfessor = document.createElement("td");
+        tdProfessor.textContent = disciplina.id_professor;
+        tr.appendChild(tdProfessor);
+
+        const tdMedia = document.createElement("td");
+        tdMedia.textContent = disciplina.mediaDefinida;
+        tr.appendChild(tdMedia);
+
+        const tdAcoes = document.createElement("td");
+
+        const divBotoes = document.createElement("div");
+        divBotoes.className = "d-flex gap-2";
+
+        const btnSel = createButton("Selecionar", "btn-info");
+        btnSel.onclick = function () {
+          txtId.value = disciplina.id_disciplina;
+          txtNomeDisciplina.value = disciplina.nomeDisciplina;
+          txtIdCurso.value = disciplina.id_curso;
+          txtIdProfessor.value = disciplina.id_professor;
+          txtMediaDefinida.value = disciplina.mediaDefinida;
+
+          divResposta.textContent = "";
+          divResposta.className = "";
+        };
+        divBotoes.appendChild(btnSel);
+
+        tdAcoes.appendChild(divBotoes);
+        tr.appendChild(tdAcoes);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      divTabela.appendChild(table);
+    }
+
+    txtFiltroDisciplina.addEventListener("input", function () {
+      const filtro = txtFiltroDisciplina.value.trim().toLowerCase();
+
+      if (!API_DATA || !API_DATA.data || !API_DATA.data.disciplinas) return;
+
+      const dadosFiltrados = {
+        data: {
+          disciplinas: API_DATA.data.disciplinas.filter(Disciplina =>
+            String(Disciplina.mediaDefinida).toLowerCase().includes(filtro)
+          )
+        }
+      };
+
+      renderTable(dadosFiltrados);
+      txtId.value = "";
+    });
+
+    listAll();
+  </script>
+
+</body>
+
+</html>

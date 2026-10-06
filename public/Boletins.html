@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>CRUD Usuários com ApiService</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    body {
+      padding: 2em;
+    }
+
+    table {
+      margin-top: 1em;
+    }
+  </style>
+</head>
+
+<body class="container">
+  <h1 class="mb-4">Gerenciamento de Boletins</h1>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      Filtro de Boletim
+    </div>
+    <div class="card-body">
+      <label for="txtFiltroBoletim" class="form-label">ID do Aluno no Boletim</label>
+      <input type="text" id="txtFiltroBoletim" class="form-control" placeholder="Digite o ID do aluno no boletim" />
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      Cadastro de Boletim
+    </div>
+
+    <div class="card-body">
+      <div class="mb-3">
+        <input type="number" id="txtId" class="form-control mb-2" placeholder="ID" />
+
+        <input type="number" id="txtNota" class="form-control mb-2" placeholder="Nota" />
+        
+        <input type="number" id="txtFrequencia" class="form-control mb-2" placeholder="Frequência" />
+
+        <input type="text" id="txtSituacao" class="form-control mb-2" placeholder="Situação" />
+
+        <input type="number" id="txtIdAluno" class="form-control mb-2" placeholder="ID do Aluno" />
+
+        <input type="number" id="txtIdDisciplina" class="form-control mb-2" placeholder="ID da Disciplina" />
+      </div>
+      <div class="mb-3 d-flex gap-2" id="divBotoes"></div>
+
+      <div id="divResposta"></div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header">
+      Lista de Boletins
+    </div>
+    <div class="card-body">
+      <div id="divTabela"></div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-labelledby="modalConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalConfirmLabel">Confirmar Exclusão</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          Tem certeza que deseja excluir este boletim?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDelete">Excluir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import ApiService from './ApiService.js';
+
+    const divUsuario = document.getElementById("divUsuario");
+
+    let userData = localStorage.getItem("userData");
+
+    if (userData) {
+      userData = JSON.parse(userData);
+    } else {
+      window.location.href = "login.html";
+    }
+
+    const token = userData.data.token;
+    const api = new ApiService(token);
+    let API_DATA;
+
+    const txtId = document.getElementById("txtId");
+    const txtNota = document.getElementById("txtNota");
+    const txtFrequencia = document.getElementById("txtFrequencia");
+    const txtSituacao = document.getElementById("txtSituacao");
+    const txtIdAluno = document.getElementById("txtIdAluno");
+    const txtIdDisciplina = document.getElementById("txtIdDisciplina");
+    const txtFiltroBoletim = document.getElementById("txtFiltroBoletim");
+    const divBotoes = document.getElementById("divBotoes");
+    const divResposta = document.getElementById("divResposta");
+
+    function createButton(text, className) {
+      const btn = document.createElement("button");
+      btn.textContent = text;
+      btn.className = `btn ${className} flex-fill`;
+      return btn;
+    }
+
+    const btnListar = createButton("Listar", "btn-primary");
+    btnListar.onclick = async function btnListar_click() {
+      listAll();
+    };
+    divBotoes.appendChild(btnListar);
+
+    const btnCriar = createButton("Criar", "btn-success");
+    btnCriar.onclick = async function btnCriar_click() {
+      if (txtId.value.trim() == "") {
+        divResposta.textContent = "ID do boletim inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtNota.value.trim() == "") {
+        divResposta.textContent = "Nota inválida";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtFrequencia.value.trim() == "") {
+        divResposta.textContent = "Frequência inválida";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtSituacao.value.trim() == "") {
+        divResposta.textContent = "Situação inválida";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtIdAluno.value.trim() == "") {
+        divResposta.textContent = "ID do aluno inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      if (txtIdDisciplina.value.trim() == "") {
+        divResposta.textContent = "ID da disciplina inválido";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      const objetoCriar = {
+        "boletim": {
+          "id_boletim": parseInt(txtId.value.trim()),
+          "nota": parseFloat(txtNota.value.trim()),
+          "frequencia": parseFloat(txtFrequencia.value.trim()),
+          "situacao": txtSituacao.value.trim(),
+          "id_aluno": parseInt(txtIdAluno.value.trim()),
+          "id_disciplina": parseInt(txtIdDisciplina.value.trim())
+        }
+      };
+
+      const resposta = await api.post("/boletins", objetoCriar);
+      if (resposta && resposta.success) {
+        divResposta.textContent = "Boletim criado com sucesso.";
+        divResposta.className = "alert alert-success";
+      } else {
+        divResposta.textContent = "Erro ao criar boletim. Verifique se o ID já existe.";
+        divResposta.className = "alert alert-danger";
+      }
+      listAll();
+    };
+    divBotoes.appendChild(btnCriar);
+
+    const btnAtualizar = createButton("Atualizar", "btn-warning");
+    btnAtualizar.onclick = async function btnAtualizar_click() {
+      const id = txtId.value.trim();
+      if (!id) {
+        divResposta.textContent = "Selecione um boletim para atualizar";
+        divResposta.className = "alert alert-warning";
+        return
+      }
+      const objetoAtualizar = {
+        "boletim": {
+          "nota": parseFloat(txtNota.value.trim()),
+          "frequencia": parseFloat(txtFrequencia.value.trim()),
+          "situacao": txtSituacao.value.trim(),
+          "id_aluno": parseInt(txtIdAluno.value.trim()),
+          "id_disciplina": parseInt(txtIdDisciplina.value.trim())
+        }
+      };
+
+      const resposta = await api.put("/boletins", id, objetoAtualizar);
+      if (resposta && resposta.success) {
+        divResposta.textContent = "Boletim atualizado com sucesso.";
+        divResposta.className = "alert alert-success";
+      } else {
+        divResposta.textContent = "Erro ao atualizar boletim. Verifique se o ID existe.";
+        divResposta.className = "alert alert-danger";
+      }
+      listAll();
+    };
+    divBotoes.appendChild(btnAtualizar);
+
+    const btnExcluir = createButton("Excluir", "btn-danger");
+    btnExcluir.onclick = function () {
+      const id = txtId.value.trim();
+      if (!id) {
+        divResposta.textContent = "Selecione um boletim para excluir";
+        divResposta.className = "alert alert-warning";
+        return;
+      }
+
+      const modal = new bootstrap.Modal(document.getElementById('modalConfirm'));
+      modal.show();
+
+      const btnConfirmDelete = document.getElementById("btnConfirmDelete");
+      btnConfirmDelete.onclick = async function () {
+        const resultado = await api.delete("/boletins", id);
+        if (resultado && resultado.success) {
+          listAll();
+          divResposta.textContent = `Boletim ID ${id} excluído com sucesso.`;
+          divResposta.className = "alert alert-success";
+          txtId.value = "";
+          txtNota.value = "";
+          txtFrequencia.value = "";
+          txtSituacao.value = "";
+          txtIdAluno.value = "";
+          txtIdDisciplina.value = "";
+        } else {
+          divResposta.textContent = "Erro ao excluir boletim. Ele pode estar vinculado a outros registros.";
+          divResposta.className = "alert alert-danger";
+        }
+        modal.hide();
+      };
+    };
+    divBotoes.appendChild(btnExcluir);
+
+    async function listAll() {
+      API_DATA = await api.get("/boletins");
+
+      if (API_DATA.success == true) {
+        renderTable(API_DATA);
+      }
+    }
+
+    function renderTable(dados) {
+      const divTabela = document.getElementById("divTabela");
+      divTabela.innerHTML = "";
+
+      const table = document.createElement("table");
+      table.className = "table table-bordered table-striped";
+
+      const thead = document.createElement("thead");
+      thead.className = "table-light";
+      const trHead = document.createElement("tr");
+
+      ["ID", "Nota", "Frequência", "Situação", "ID Aluno", "ID Disciplina", "Ações"].forEach(text => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        trHead.appendChild(th);
+      });
+
+      thead.appendChild(trHead);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      dados.data.boletins.forEach(boletim => {
+        const tr = document.createElement("tr");
+
+        const tdId = document.createElement("td");
+        tdId.textContent = boletim.id_boletim;
+        tr.appendChild(tdId);
+
+        const tdNota = document.createElement("td");
+        tdNota.textContent = boletim.nota;
+        tr.appendChild(tdNota);
+
+        const tdFrequencia = document.createElement("td");
+        tdFrequencia.textContent = boletim.frequencia;
+        tr.appendChild(tdFrequencia);
+
+        const tdSituacao = document.createElement("td");
+        tdSituacao.textContent = boletim.situacao;
+        tr.appendChild(tdSituacao);
+
+        const tdIdAluno = document.createElement("td");
+        tdIdAluno.textContent = boletim.id_aluno;
+        tr.appendChild(tdIdAluno);
+
+        const tdIdDisciplina = document.createElement("td");
+        tdIdDisciplina.textContent = boletim.id_disciplina;
+        tr.appendChild(tdIdDisciplina);
+
+        const tdAcoes = document.createElement("td");
+
+        const divBotoes = document.createElement("div");
+        divBotoes.className = "d-flex gap-2";
+
+        const btnSel = createButton("Selecionar", "btn-info");
+        btnSel.onclick = function () {
+          txtId.value = boletim.id_boletim;
+          txtNota.value = boletim.nota;
+          txtFrequencia.value = boletim.frequencia;
+          txtSituacao.value = boletim.situacao;
+          txtIdAluno.value = boletim.id_aluno;
+          txtIdDisciplina.value = boletim.id_disciplina;
+
+          divResposta.textContent = "";
+          divResposta.className = "";
+        };
+        divBotoes.appendChild(btnSel);
+
+        tdAcoes.appendChild(divBotoes);
+        tr.appendChild(tdAcoes);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      divTabela.appendChild(table);
+    }
+
+    txtFiltroBoletim.addEventListener("input", function () {
+      const filtro = txtFiltroBoletim.value.trim().toLowerCase();
+
+      if (!API_DATA || !API_DATA.data || !API_DATA.data.boletins) return;
+
+      const dadosFiltrados = {
+        data: {
+          boletins: API_DATA.data.boletins.filter(boletim =>
+            String(boletim.id_aluno).toLowerCase().includes(filtro)
+          )
+        }
+      };
+
+      renderTable(dadosFiltrados);
+      txtId.value = "";
+    });
+
+    listAll();
+  </script>
+
+</body>
+
+</html>
